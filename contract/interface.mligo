@@ -138,7 +138,7 @@ type storage =
     operators           : (operator, unit) big_map;
     metadata            : (string, bytes) big_map;
     token_metadata      : (token_id, token_info) big_map;
-    total_supply        : nat;
+    total_tokens        : nat;
     admin               : address;
     next_nft_id         : nat;
 }

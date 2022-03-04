@@ -16,6 +16,7 @@ let mint (p, s: mint_param * storage): storage =
                 ledger          = new_ledger;
                 token_metadata  = new_token_metadata;
                 next_nft_id     = s.next_nft_id + 1n;
+                total_tokens    = s.total_tokens + token_amount;
         }
 
 // lets users burn existing NFTs
@@ -41,4 +42,5 @@ let burn (p, s: burn_param * storage): storage =
                 s with
                     ledger          = new_ledger;
                     token_metadata  = new_token_metadata;
+                    total_tokens    = abs (s.total_tokens - token_amount);
             }

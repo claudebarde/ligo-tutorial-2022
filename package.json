@@ -4,7 +4,8 @@
   "description": "Ligo tutorial (with CameLigo syntax) - 2022",
   "main": "index.js",
   "scripts": {
-    "compile:watch": "nodemon --ext mligo --exec ligo compile contract ./contract/main.mligo --protocol hangzhou"
+    "compile:watch": "nodemon --ext mligo --watch ./contract --exec ligo compile contract ./contract/main.mligo --protocol hangzhou",
+    "test:watch": "nodemon --ext mligo --watch ./test --exec ligo run test ./test/contract.test.mligo"
   },
   "keywords": [
     "Tezos",
