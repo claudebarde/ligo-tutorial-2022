@@ -6,16 +6,16 @@ let mint (p, s: mint_param * storage): storage =
     then (failwith "INVALID_IPFS_HASH": storage)
     else
         // mints the new NFTs
-        let new_ledger = Big_map.add (Tezos.sender, s.next_nft_id) token_amount s.ledger in
+        let new_ledger = Big_map.add (Tezos.sender, s.next_token_id) token_amount s.ledger in
         let token_info = 
-            { token_id = s.next_nft_id; token_info = Map.literal [ ("", Bytes.pack ("ipfs://" ^ ipfs_hash)) ] } in
-        let new_token_metadata = Big_map.add s.next_nft_id token_info s.token_metadata in
+            { token_id = s.next_token_id; token_info = Map.literal [ ("", Bytes.pack ("ipfs://" ^ ipfs_hash)) ] } in
+        let new_token_metadata = Big_map.add s.next_token_id token_info s.token_metadata in
 
         {
             s with
                 ledger          = new_ledger;
                 token_metadata  = new_token_metadata;
-                next_nft_id     = s.next_nft_id + 1n;
+                next_token_id     = s.next_token_id + 1n;
                 total_tokens    = s.total_tokens + token_amount;
         }
 

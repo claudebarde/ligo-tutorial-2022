@@ -140,7 +140,7 @@ type storage =
     token_metadata      : (token_id, token_info) big_map;
     total_tokens        : nat;
     admin               : address;
-    next_nft_id         : nat;
+    next_token_id         : nat;
 }
 
 type return = (operation list) * storage
