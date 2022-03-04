@@ -19,14 +19,14 @@ let apply_transfer (((from, s), transfer): (address * storage) * transfer_to): a
             if Tezos.sender <> from && not Big_map.mem operator s.operators
             then (failwith "FA2_NOT_OPERATOR": address * storage)
             else
-                // removes the token from the sender's account
+                // updates the sender's account
                 let new_ledger: ledger = 
-                    Big_map.remove (from, token_id) s.ledger in
+                    Big_map.update (from, token_id) (Some (abs (sender_balance - amt))) s.ledger in
                 // adds the token to the recipient's account
                 let new_ledger: ledger =
                     match Big_map.find_opt (recipient, token_id) new_ledger with
                     | None -> Big_map.add (recipient, token_id) amt new_ledger
-                    | Some _ -> Big_map.update (recipient, token_id) (Some amt) new_ledger
+                    | Some blnc -> Big_map.update (recipient, token_id) (Some (blnc + amt)) new_ledger
                 in
 
                 from, { s with ledger = new_ledger }
