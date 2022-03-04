@@ -1,0 +1,19 @@
+{
+  "name": "ligo-tutorial-2022",
+  "version": "1.0.0",
+  "description": "Ligo tutorial (with CameLigo syntax) - 2022",
+  "main": "index.js",
+  "scripts": {
+    "compile:watch": "nodemon --ext mligo --exec ligo compile contract ./contract/main.mligo --protocol hangzhou"
+  },
+  "keywords": [
+    "Tezos",
+    "Ligolang",
+    "blockchain"
+  ],
+  "author": "Claude Barde",
+  "license": "MIT",
+  "devDependencies": {
+    "nodemon": "^2.0.15"
+  }
+}
