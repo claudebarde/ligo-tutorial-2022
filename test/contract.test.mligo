@@ -19,5 +19,24 @@ let test =
     // originates the contract
     let nft_addr, _, _ = Test.originate main initial_storage 0tez in
     let _ = assert (Test.get_storage nft_addr = initial_storage) in
+    (*
+        MINTING TESTS
+    *)
+
+    (*
+        TRANSFER TESTS
+    *)
+
+    (*
+        UPDATE OPERATOR TESTS
+    *)
+
+    (*
+        MARKETPLACE TESTS
+    *)
+
+    (*
+        BURNING TEST
+    *)
 
     ()
