@@ -38,4 +38,6 @@ let process_transfer (s, transfer: storage * transfer_param): storage =
     in new_storage
 
 let transfer (transfer_list, s: (transfer_param list) * storage): storage =
-    List.fold process_transfer transfer_list s
+    if Tezos.amount > 0tez
+    then (failwith "NO_XTZ_AMOUNT": storage)
+    else List.fold process_transfer transfer_list s

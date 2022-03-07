@@ -374,6 +374,347 @@ let test =
     (*
         MARKETPLACE TESTS
     *)
+    // SET ON MARKETPLACE
+
+    let alice_balance = 
+        match alice_balance with
+        | Some blnc -> 
+            let _ = assert true in
+            blnc
+        | None -> 
+            let _ = assert false in
+            0n
+    in
+
+    let _ = Test.set_source (alice_address) in
+    let nft_contract: new_market_place_entry contract = Test.to_entrypoint "set_on_market_place" nft_addr in
+    // Should fail if Alice tries to sell more NFTs than she owns
+    let params = { token_id = 0n; token_amount = alice_balance + 1n; price_per_token = 1tez } in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 0tez with
+        | Success _ -> let _ = Test.log "Test 20 failed" in assert false
+        | Fail err -> 
+            begin
+                match err with 
+                | Rejected (msg, _) ->
+                    if msg = Test.compile_value "FA2_INSUFFICIENT_BALANCE"
+                    then
+                        let _ = Test.log "Test 20 passed" in assert true
+                    else
+                        let _ = Test.log "Test 20 failed" in assert false
+                | Other -> let _ = Test.log "Test 20 failed" in assert false
+            end
+    in
+    // Should fail if Alice tries to sell an unknown token id
+    let params = { token_id = 111n; token_amount = 1n; price_per_token = 1tez } in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 0tez with
+        | Success _ -> let _ = Test.log "Test 21 failed" in assert false
+        | Fail err -> 
+            begin
+                match err with 
+                | Rejected (msg, _) ->
+                    if msg = Test.compile_value "FA2_TOKEN_UNDEFINED"
+                    then
+                        let _ = Test.log "Test 21 passed" in assert true
+                    else
+                        let _ = Test.log "Test 21 failed" in assert false
+                | Other -> let _ = Test.log "Test 21 failed" in assert false
+            end
+    in
+    // Should fail if contract is not set as operator first
+    let params = { token_id = 0n; token_amount = 2n; price_per_token = 1tez } in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 0tez with
+        | Success _ -> let _ = Test.log "Test 22 failed" in assert false
+        | Fail err -> 
+            begin
+                match err with 
+                | Rejected (msg, _) ->
+                    if msg = Test.compile_value "FA2_NOT_OPERATOR"
+                    then
+                        let _ = Test.log "Test 22 passed" in assert true
+                    else
+                        let _ = Test.log "Test 22 failed" in assert false
+                | Other -> let _ = Test.log "Test 22 failed" in assert false
+            end
+    in
+    // Should let Alice sell 2 NFTs on the market place
+    let storage = Test.get_storage nft_addr in
+    let alice_previous_balance =
+        match Big_map.find_opt (alice_address, 0n) storage.ledger with
+        | None ->
+            let _ = assert false in
+            0n
+        | Some blnc ->
+            let _ = assert true in
+            blnc
+    in
+    let nft_contract: (update_operators_param list) contract = Test.to_entrypoint "update_operators" nft_addr in
+    let operator = {
+        owner = alice_address;
+        operator = Tezos.address (Test.to_contract nft_addr);
+        token_id = 0n;
+    } in
+    let params = [ Add_operator (operator) ] in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 0tez with
+        | Success _ -> let _ = Test.log "Test 23 passed" in assert true
+        | Fail _ -> let _ = Test.log "Test 23 failed" in assert false
+    in
+    let nft_contract: new_market_place_entry contract = Test.to_entrypoint "set_on_market_place" nft_addr in
+    let params = { token_id = 0n; token_amount = 4n; price_per_token = 1tez } in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 0tez with
+        | Success _ -> let _ = Test.log "Test 24 passed" in assert true
+        | Fail _ -> let _ = Test.log "Test 24 failed" in assert false
+    in
+    // double checks that 4 NFTs are on sale in the marketplace
+    let storage = Test.get_storage nft_addr in
+    let _ = 
+        match Big_map.find_opt (params.token_id, alice_address) storage.market_place with
+        | None -> let _ = Test.log "Test 25 failed" in assert false
+        | Some sale ->
+            if sale.price_per_token = params.price_per_token 
+            && sale.token_amount = params.token_amount
+            then let _ = Test.log "Test 25 passed" in assert true
+            else let _ = Test.log "Test 25 failed" in assert false
+    in
+    // double checks that 4 NFTs have been removed from Alice's balance
+    let alice_new_balance =
+        match Big_map.find_opt (alice_address, 0n) storage.ledger with
+        | None ->
+            let _ = assert false in
+            0n
+        | Some blnc ->
+            let _ = assert true in
+            blnc
+    in
+    let _ =
+        if int alice_new_balance = alice_previous_balance - params.token_amount
+        then let _ = Test.log "Test 26 passed" in assert true
+        else let _ = Test.log "Test 26 failed" in assert false
+    in
+
+    // BUY FROM MARKETPLACE
+
+    let _ = Test.set_source (bob_address) in
+    let nft_contract: buy_from_market_place_param contract = Test.to_entrypoint "buy_from_market_place" nft_addr in
+    // should fail on unknown marketplace entries
+    let params: buy_from_market_place_param = {
+        token_id = 111n;
+        token_amount = 1n;
+        seller = alice_address
+    } in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 0tez with
+        | Success _ -> let _ = Test.log "Test 27 failed" in assert false
+        | Fail err -> 
+            begin
+                match err with 
+                | Rejected (msg, _) ->
+                    if msg = Test.compile_value "UNKNOWN_MARKET_PLACE_ENRTY"
+                    then
+                        let _ = Test.log "Test 27 passed" in assert true
+                    else
+                        let _ = Test.log "Test 27 failed" in assert false
+                | Other -> let _ = Test.log "Test 27 failed" in assert false
+            end
+    in
+    let params: buy_from_market_place_param = {
+        token_id = 0n;
+        token_amount = 1n;
+        seller = bob_address
+    } in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 0tez with
+        | Success _ -> let _ = Test.log "Test 28 failed" in assert false
+        | Fail err -> 
+            begin
+                match err with 
+                | Rejected (msg, _) ->
+                    if msg = Test.compile_value "UNKNOWN_MARKET_PLACE_ENRTY"
+                    then
+                        let _ = Test.log "Test 28 passed" in assert true
+                    else
+                        let _ = Test.log "Test 28 failed" in assert false
+                | Other -> let _ = Test.log "Test 28 failed" in assert false
+            end
+    in
+    // should prevent Bob from buying more NFTs than available
+    let params: buy_from_market_place_param = {
+        token_id = 0n;
+        token_amount = 111n;
+        seller = alice_address
+    } in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 0tez with
+        | Success _ -> let _ = Test.log "Test 29 failed" in assert false
+        | Fail err -> 
+            begin
+                match err with 
+                | Rejected (msg, _) ->
+                    if msg = Test.compile_value "FA2_INSUFFICIENT_BALANCE"
+                    then
+                        let _ = Test.log "Test 29 passed" in assert true
+                    else
+                        let _ = Test.log "Test 29 failed" in assert false
+                | Other -> let _ = Test.log "Test 29 failed" in assert false
+            end
+    in
+    // should fail if user doesn't attach the right amount of XTZ
+    let params: buy_from_market_place_param = {
+        token_id = 0n;
+        token_amount = 1n;
+        seller = alice_address
+    } in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 10mutez with
+        | Success _ -> let _ = Test.log "Test 30 failed" in assert false
+        | Fail err -> 
+            begin
+                match err with 
+                | Rejected (msg, _) ->
+                    if msg = Test.compile_value "WRONG_AMOUNT_FOR_PAYMENT"
+                    then
+                        let _ = Test.log "Test 30 passed" in assert true
+                    else
+                        let _ = Test.log "Test 30 failed" in assert false
+                | Other -> let _ = Test.log "Test 30 failed" in assert false
+            end
+    in
+    let params: buy_from_market_place_param = {
+        token_id = 0n;
+        token_amount = 1n;
+        seller = alice_address
+    } in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 10tez with
+        | Success _ -> let _ = Test.log "Test 31 failed" in assert false
+        | Fail err -> 
+            begin
+                match err with 
+                | Rejected (msg, _) ->
+                    if msg = Test.compile_value "WRONG_AMOUNT_FOR_PAYMENT"
+                    then
+                        let _ = Test.log "Test 31 passed" in assert true
+                    else
+                        let _ = Test.log "Test 31 failed" in assert false
+                | Other -> let _ = Test.log "Test 31 failed" in assert false
+            end
+    in
+    // should let Bob buy 1 NFT
+    let storage = Test.get_storage nft_addr in
+    let bob_previous_balance =
+        match Big_map.find_opt (bob_address, 0n) storage.ledger with
+        | None -> 0n
+        | Some blnc -> blnc
+    in
+    let bob_prev_xtz_balance = Test.get_balance bob_address in
+    let alice_prev_xtz_balance = Test.get_balance alice_address in
+    let params: buy_from_market_place_param = {
+        token_id = 0n;
+        token_amount = 1n;
+        seller = alice_address
+    } in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 1tez with
+        | Success _ -> let _ = Test.log "Test 32 passed" in assert true
+        | Fail _ -> let _ = Test.log "Test 32 failed" in assert false
+    in
+    let storage = Test.get_storage nft_addr in
+    let bob_new_balance =
+        match Big_map.find_opt (bob_address, 0n) storage.ledger with
+        | None -> 0n
+        | Some blnc -> blnc
+    in
+    let _ =
+        if bob_new_balance = bob_previous_balance + params.token_amount
+        then let _ = Test.log "Test 33 passed" in assert true
+        else let _ = Test.log "Test 33 failed" in assert false
+    in
+    let bob_new_xtz_balance = Test.get_balance bob_address in
+    let _ =
+        if bob_new_xtz_balance < bob_prev_xtz_balance - 1tez
+        then let _ = Test.log "Test 34 passed" in assert true
+        else let _ = Test.log "Test 34 failed" in assert false
+    in
+    let alice_new_xtz_balance = Test.get_balance alice_address in
+    let _ = Test.log alice_prev_xtz_balance in
+    let _ = Test.log alice_new_xtz_balance in
+    let _ =
+        if alice_new_xtz_balance = alice_prev_xtz_balance + 1tez
+        then let _ = Test.log "Test 35 passed" in assert true
+        else let _ = Test.log "Test 35 failed" in assert false
+    in
+
+    // REMOVE FROM MARKETPLACE
+
+    let _ = Test.set_source (alice_address) in
+    let nft_contract: token_id contract = Test.to_entrypoint "remove_from_market_place" nft_addr in
+    // should prevent Alice from removing a non-existing token_id
+    let _ = 
+        match Test.transfer_to_contract nft_contract 111n 0tez with
+        | Success _ -> let _ = Test.log "Test 36 failed" in assert false
+        | Fail err -> 
+            begin
+                match err with 
+                | Rejected (msg, _) ->
+                    if msg = Test.compile_value "UNKNOWN_MARKET_PLACE_ENTRY"
+                    then
+                        let _ = Test.log "Test 36 passed" in assert true
+                    else
+                        let _ = Test.log "Test 36 failed" in assert false
+                | Other -> let _ = Test.log "Test 36 failed" in assert false
+            end
+    in
+    // Should let Alice remove her NFTs
+    let storage = Test.get_storage nft_addr in
+    let alice_previous_balance =
+        match Big_map.find_opt (alice_address, 0n) storage.ledger with
+        | None ->
+            let _ = assert false in
+            0n
+        | Some blnc ->
+            let _ = assert true in
+            blnc
+    in
+
+    let token_amount_in_market_place: nat = 
+        match Big_map.find_opt (params.token_id, alice_address) storage.market_place with
+        | None -> 
+            let _ = Test.log "Test 37 failed" in 
+            let _ = assert false in
+            0n
+        | Some sale ->
+            begin
+                match Test.transfer_to_contract nft_contract 0n 0tez with
+                | Success _ -> 
+                    let _ = Test.log "Test 37 passed" in 
+                    let _ = assert true in
+                    sale.token_amount
+                | Fail _ -> 
+                    let _ = Test.log "Test 37 failed" in 
+                    let _ = assert false in
+                    0n
+            end
+    in
+    // doubles checks entry has been removed and NFTs have been returned
+    let storage = Test.get_storage nft_addr in
+    let alice_new_balance =
+        match Big_map.find_opt (alice_address, 0n) storage.ledger with
+        | None ->
+            let _ = assert false in
+            0n
+        | Some blnc ->
+            let _ = assert true in
+            blnc
+    in
+    let _ =
+        if alice_new_balance = alice_previous_balance + token_amount_in_market_place
+        then let _ = Test.log "Test 38 passed" in assert true
+        else let _ = Test.log "Test 38 failed" in assert false
+    in
 
     (*
         BURNING TEST

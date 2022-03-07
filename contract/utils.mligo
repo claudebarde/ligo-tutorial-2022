@@ -14,13 +14,13 @@ let update_metadata (p, s: bytes * storage): storage =
     then (failwith "NOT_AN_ADMIN": storage)
     else { s with metadata = Big_map.update "contents" (Some (p)) s.metadata }
 
-let forge_transfer_op (token_id: token_id) (token_amount: nat): operation =
+let forge_transfer_op (from_: address) (to_: address) (token_id: token_id) (token_amount: nat): operation =
     let transfer_param: transfer_param list = [
         {
-            from_   = Tezos.sender;
+            from_   = from_;
             txs     = [
                 {
-                    to_         = Tezos.self_address;
+                    to_         = to_;
                     token_id    = token_id;
                     amount      = token_amount;
                 }
