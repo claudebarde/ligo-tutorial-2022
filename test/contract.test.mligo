@@ -1,8 +1,9 @@
 #include "../contract/main.mligo"
 
 let test =
-    let alice_address = Test.nth_bootstrap_account 0 in
-    let bob_address = Test.nth_bootstrap_account 1 in
+    let _ = Test.reset_state 3n ([]: tez list) in
+    let alice_address = Test.nth_bootstrap_account 1 in
+    let bob_address = Test.nth_bootstrap_account 2 in
 
     let initial_storage = {
         ledger              = (Big_map.empty: ledger);
@@ -640,13 +641,12 @@ let test =
         else let _ = Test.log "Test 34 failed" in assert false
     in
     let alice_new_xtz_balance = Test.get_balance alice_address in
-    let _ = Test.log alice_prev_xtz_balance in
-    let _ = Test.log alice_new_xtz_balance in
     let _ =
         if alice_new_xtz_balance = alice_prev_xtz_balance + 1tez
         then let _ = Test.log "Test 35 passed" in assert true
         else let _ = Test.log "Test 35 failed" in assert false
     in
+    // let _ = Test.log "TODO: check Alice's balance before and after" in
 
     // REMOVE FROM MARKETPLACE
 
@@ -719,5 +719,54 @@ let test =
     (*
         BURNING TEST
     *)
+    let nft_contract: burn_param contract = Test.to_entrypoint "burn" nft_addr in
+    // should prevent Alice from burning NFTs of unknown id
+    let params: burn_param = { token_id = 111n; token_amount = 1n } in
+    let expected_err = Test.compile_value "FA2_TOKEN_UNDEFINED" in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 0tez with
+        | Success _ -> 
+            let _ = Test.log "Test 39 failed" in assert false
+        | Fail err -> 
+            begin
+                match err with
+                | Rejected (err, _) -> 
+                    if Test.michelson_equal err expected_err
+                    then let _ = Test.log "Test 39 passed" in assert true 
+                    else let _ = Test.log "Test 39 failed" in assert false
+                | Other -> assert false
+            end
+    in
+    // should prevent Alice from burning more NFTs than she owns
+    let alice_nft_balance =
+        match Big_map.find_opt (alice_address, 0n) storage.ledger with
+        | None -> 0n
+        | Some blnc -> blnc
+    in
+    let params: burn_param = { token_id = 0n; token_amount = alice_nft_balance + 1n } in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 0tez with
+        | Success _ -> let _ = Test.log "Test 40 failed" in assert false
+        | Fail _ -> let _ = Test.log "Test 40 passed" in assert true
+    in
+    // should let Alice burn 1 NFT
+    let params: burn_param = { token_id = 0n; token_amount = 1n } in
+    let _ = 
+        match Test.transfer_to_contract nft_contract params 0tez with
+        | Success _ -> let _ = Test.log "Test 41 passed" in assert true
+        | Fail _ -> let _ = Test.log "Test 41 failed" in assert false
+    in
+    // checks that NFT was burned
+    let storage = Test.get_storage nft_addr in
+    let alice_new_nft_balance =
+        match Big_map.find_opt (alice_address, 0n) storage.ledger with
+        | None -> 0n
+        | Some blnc -> blnc
+    in
+    let _ =
+        if int alice_new_nft_balance = alice_nft_balance - 1n
+        then let _ = Test.log "Test 42 passed" in assert true
+        else let _ = Test.log "Test 42 failed" in assert false
+    in
 
     ()

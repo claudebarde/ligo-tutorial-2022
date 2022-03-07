@@ -22,25 +22,28 @@ let mint (p, s: mint_param * storage): storage =
 // lets users burn existing NFTs
 let burn (p, s: burn_param * storage): storage =
     let { token_id = token_id; token_amount = token_amount } = p in
-    // user must own the required amount of tokens
-    match Big_map.find_opt (Tezos.sender, token_id) s.ledger with
-    | None -> (failwith "FA2_INSUFFICIENT_BALANCE": storage)
-    | Some blnc -> 
-        // checks if balance is enough
-        if blnc < token_amount
-        then (failwith "FA2_INSUFFICIENT_BALANCE": storage)
-        else
-            let new_balance = abs (blnc - token_amount) in
-            let new_ledger = Big_map.update (Tezos.sender, token_id) (Some new_balance) s.ledger in
-            // cleans up token_metadata bigmap if new_balance = 0n
-            let new_token_metadata =
-                if new_balance = 0n
-                then Big_map.remove token_id s.token_metadata
-                else s.token_metadata
-            in
-            {
-                s with
-                    ledger          = new_ledger;
-                    token_metadata  = new_token_metadata;
-                    total_tokens    = abs (s.total_tokens - token_amount);
-            }
+    if not Big_map.mem token_id s.token_metadata
+    then (failwith "FA2_TOKEN_UNDEFINED": storage)
+    else
+        // user must own the required amount of tokens
+        match Big_map.find_opt (Tezos.sender, token_id) s.ledger with
+        | None -> (failwith "FA2_INSUFFICIENT_BALANCE": storage)
+        | Some blnc -> 
+            // checks if balance is enough
+            if blnc < token_amount
+            then (failwith "FA2_INSUFFICIENT_BALANCE": storage)
+            else
+                let new_balance = abs (blnc - token_amount) in
+                let new_ledger = Big_map.update (Tezos.sender, token_id) (Some new_balance) s.ledger in
+                // cleans up token_metadata bigmap if new_balance = 0n
+                let new_token_metadata =
+                    if new_balance = 0n
+                    then Big_map.remove token_id s.token_metadata
+                    else s.token_metadata
+                in
+                {
+                    s with
+                        ledger          = new_ledger;
+                        token_metadata  = new_token_metadata;
+                        total_tokens    = abs (s.total_tokens - token_amount);
+                }
